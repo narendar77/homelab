@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400">
+  <defs>
+    <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#11998e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#38ef7d;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#grad3)"/>
+  <text x="300" y="200" font-family="Arial" font-size="24" fill="white" text-anchor="middle">Forest Path</text>
+  <rect x="280" y="100" width="40" height="300" fill="#2d5016" opacity="0.6"/>
+  <rect x="180" y="150" width="30" height="250" fill="#3d6b1e" opacity="0.5"/>
+  <rect x="390" y="120" width="35" height="280" fill="#2d5016" opacity="0.5"/>
+  <ellipse cx="300" cy="350" rx="250" ry="30" fill="#1a3c0a" opacity="0.4"/>
+</svg>

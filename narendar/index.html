@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Narendar.com</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .scrolling-gallery {
+            margin-top: 40px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .gallery-title {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .scroll-container {
+            display: flex;
+            gap: 20px;
+            animation: scroll 30s linear infinite;
+        }
+
+        .scroll-container:hover {
+            animation-play-state: paused;
+        }
+
+        @keyframes scroll {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(-50%);
+            }
+        }
+
+        .image-card {
+            flex: 0 0 300px;
+            height: 200px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .image-card:hover {
+            transform: scale(1.05);
+        }
+
+        .image-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-caption {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            color: white;
+            padding: 20px 15px 10px;
+            font-size: 0.9rem;
+        }
+
+        .image-card {
+            position: relative;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            margin-top: 40px;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .image-card {
+                flex: 0 0 250px;
+                height: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Welcome to Narendar.com</h1>
+            <p class="subtitle">A showcase of beautiful imagery</p>
+        </header>
+
+        <div class="scrolling-gallery">
+            <h2 class="gallery-title">Image Gallery</h2>
+            <div class="scroll-container">
+                <!-- First set of images -->
+                <div class="image-card">
+                    <img src="images/image1.svg" alt="Beautiful landscape">
+                    <div class="image-caption">Mountain View</div>
+                </div>
+                <div class="image-card">
+                    <img src="images/image2.svg" alt="Ocean sunset">
+                    <div class="image-caption">Ocean Sunset</div>
+                </div>
+                <div class="image-card">
+                    <img src="images/image3.svg" alt="Forest path">
+                    <div class="image-caption">Forest Path</div>
+                </div>
+                <div class="image-card">
+                    <img src="images/image4.svg" alt="City skyline">
+                    <div class="image-caption">City Skyline</div>
+                </div>
+                <div class="image-card">
+                    <img src="images/image5.svg" alt="Desert dunes">
+                    <div class="image-caption">Desert Dunes</div>
+                </div>
+                <div class="image-card">
+                    <img src="images/image6.svg" alt="Northern lights">
+                    <div class="image-caption">Northern Lights</div>
+                </div>
+                
+                <!-- Duplicate set for seamless scrolling -->
+                <div class="image-card">
+                    <img src="images/image1.svg" alt="Beautiful landscape">
+                    <div class="image-caption">Mountain View</div>
+                </div>
+                <div class="image-card">
+                    <img src="images/image2.svg" alt="Ocean sunset">
+                    <div class="image-caption">Ocean Sunset</div>
+                </div>
+                <div class="image-card">
+                    <img src="images/image3.svg" alt="Forest path">
+                    <div class="image-caption">Forest Path</div>
+                </div>
+                <div class="image-card">
+                    <img src="images/image4.svg" alt="City skyline">
+                    <div class="image-caption">City Skyline</div>
+                </div>
+                <div class="image-card">
+                    <img src="images/image5.svg" alt="Desert dunes">
+                    <div class="image-caption">Desert Dunes</div>
+                </div>
+                <div class="image-card">
+                    <img src="images/image6.svg" alt="Northern lights">
+                    <div class="image-caption">Northern Lights</div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2026 Narendar.com. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>
