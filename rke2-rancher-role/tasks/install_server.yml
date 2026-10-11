@@ -1,0 +1,79 @@
+---
+# RKE2 server installation tasks - run on master node only
+
+- name: Create RKE2 config directory
+  ansible.builtin.file:
+    path: "{{ rke2_config_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Create RKE2 server config
+  ansible.builtin.copy:
+    dest: "{{ rke2_config_dir }}/config.yaml"
+    content: |
+      node-name: {{ rke2_master_node }}
+      node-ip: {{ rke2_master_ip }}
+      write-kubeconfig-mode: "{{ rke2_write_kubeconfig_mode }}"
+      selinux: {{ rke2_selinux | lower }}
+      tls-san:
+        - {{ rke2_master_ip }}
+        - {{ rke2_master_node }}
+    mode: '0600'
+
+- name: Download RKE2 installer script
+  ansible.builtin.get_url:
+    url: https://get.rke2.io
+    dest: /root/install-rke2.sh
+    mode: '0755'
+
+- name: Install RKE2 server
+  ansible.builtin.shell: |
+    INSTALL_RKE2_METHOD={{ rke2_install_method }} \
+    INSTALL_RKE2_CHANNEL={{ rke2_channel }} \
+    INSTALL_RKE2_VERSION='{{ rke2_version }}' \
+    INSTALL_RKE2_TYPE=server \
+    sh /root/install-rke2.sh
+  args:
+    creates: /usr/local/bin/rke2
+
+- name: Verify RKE2 installation
+  ansible.builtin.command: rke2 --version
+  register: rke2_version_check
+  changed_when: false
+
+- name: Check installed RKE2 packages
+  ansible.builtin.command: rpm -q rke2-server rke2-common rke2-selinux
+  register: rpm_check
+  changed_when: false
+
+- name: Version lock RKE2 packages
+  ansible.builtin.command: dnf versionlock add rke2-server rke2-common
+  changed_when: false
+
+- name: Enable and start RKE2 server
+  ansible.builtin.systemd:
+    name: rke2-server
+    state: started
+    enabled: yes
+
+- name: Wait for RKE2 server to be ready
+  ansible.builtin.wait_for:
+    path: /etc/rancher/rke2/rke2.yaml
+    timeout: 300
+
+- name: Create rke2 environment script
+  ansible.builtin.copy:
+    dest: /root/rke2-env.sh
+    content: |
+      export PATH="$PATH:/var/lib/rancher/rke2/bin"
+      export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    mode: '0600'
+
+- name: Read RKE2 node token
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/rke2/server/node-token
+  register: rke2_token
+
+- name: Display RKE2 join token (for reference)
+  ansible.builtin.debug:
+    msg: "RKE2 Join Token: {{ rke2_token.content | b64decode | trim }}"

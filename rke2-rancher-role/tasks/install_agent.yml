@@ -1,0 +1,92 @@
+---
+# RKE2 agent installation tasks - run on worker nodes only
+
+- name: Get node IP for current worker
+  ansible.builtin.set_fact:
+    current_node_ip: "{{ item.ip }}"
+    current_node_name: "{{ item.name }}"
+  when: inventory_hostname == item.name
+  loop: "{{ rke2_worker_nodes }}"
+
+- name: Wait for master to be reachable
+  ansible.builtin.wait_for:
+    host: "{{ rke2_master_ip }}"
+    port: 9345
+    timeout: 300
+
+- name: Test connectivity to master port 9345
+  ansible.builtin.command: nc -zv {{ rke2_master_ip }} 9345
+  register: port_check_9345
+  changed_when: false
+  ignore_errors: yes
+
+- name: Test connectivity to master port 6443
+  ansible.builtin.command: nc -zv {{ rke2_master_ip }} 6443
+  register: port_check_6443
+  changed_when: false
+  ignore_errors: yes
+
+- name: Fail if master is not reachable
+  ansible.builtin.fail:
+    msg: "Master node {{ rke2_master_ip }} is not reachable on ports 9345 or 6443"
+  when: port_check_9345.rc != 0 or port_check_6443.rc != 0
+
+- name: Create RKE2 config directory
+  ansible.builtin.file:
+    path: "{{ rke2_config_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Get RKE2 join token from master
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/rke2/server/node-token
+  register: rke2_token
+  delegate_to: "{{ rke2_master_node }}"
+  run_once: true
+
+- name: Create RKE2 agent config
+  ansible.builtin.copy:
+    dest: "{{ rke2_config_dir }}/config.yaml"
+    content: |
+      server: https://{{ rke2_master_ip }}:9345
+      token: {{ rke2_token.content | b64decode | trim }}
+      node-name: {{ current_node_name }}
+      node-ip: {{ current_node_ip }}
+      selinux: {{ rke2_selinux | lower }}
+    mode: '0600'
+
+- name: Download RKE2 installer script
+  ansible.builtin.get_url:
+    url: https://get.rke2.io
+    dest: /root/install-rke2.sh
+    mode: '0755'
+
+- name: Install RKE2 agent
+  ansible.builtin.shell: |
+    INSTALL_RKE2_METHOD={{ rke2_install_method }} \
+    INSTALL_RKE2_CHANNEL={{ rke2_channel }} \
+    INSTALL_RKE2_VERSION='{{ rke2_version }}' \
+    INSTALL_RKE2_TYPE=agent \
+    sh /root/install-rke2.sh
+  args:
+    creates: /usr/local/bin/rke2
+
+- name: Verify RKE2 installation
+  ansible.builtin.command: rke2 --version
+  register: rke2_version_check
+  changed_when: false
+
+- name: Check installed RKE2 packages
+  ansible.builtin.command: rpm -q rke2-agent rke2-common rke2-selinux
+  register: rpm_check
+  changed_when: false
+
+- name: Version lock RKE2 packages
+  ansible.builtin.command: dnf versionlock add rke2-agent rke2-common
+  changed_when: false
+
+- name: Enable and start RKE2 agent
+  ansible.builtin.systemd:
+    name: rke2-agent
+    state: started
+    enabled: yes

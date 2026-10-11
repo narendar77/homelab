@@ -1,0 +1,45 @@
+---
+# Default values for RKE2 Rancher role
+# These can be overridden in inventory or playbook
+
+# Package installation
+system_packages:
+  - curl
+  - ca-certificates
+  - openssl
+  - tar
+  - gzip
+  - chrony
+  - iproute
+  - iptables
+  - conntrack-tools
+  - nmap-ncat
+  - bind-utils
+  - kernel-modules
+  - kernel-modules-extra
+  - policycoreutils
+  - container-selinux
+  - python3-dnf-plugin-versionlock
+
+# Kernel modules to load
+kernel_modules:
+  - overlay
+  - br_netfilter
+  - vxlan
+  - nf_conntrack
+
+# Sysctl parameters
+sysctl_params:
+  net.ipv4.ip_forward: 1
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+
+# DNS verification
+dns_test_host: "{{ rancher_hostname }}"
+dns_expected_ip: "{{ rke2_master_ip }}"
+
+# NetworkManager unmanaged devices
+networkmanager_unmanaged_devices: >-
+  interface-name:flannel*;interface-name:cali*;interface-name:tunl*;
+  interface-name:vxlan.calico;interface-name:vxlan-v6.calico;
+  interface-name:wireguard.cali;interface-name:wg-v6.cali

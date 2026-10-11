@@ -1,0 +1,91 @@
+---
+# Verification and backup tasks - run on master node only
+
+- name: Create RKE2 etcd snapshot
+  ansible.builtin.command: rke2 etcd-snapshot save --name initial-rancher-install
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+  register: etcd_snapshot
+  changed_when: false
+
+- name: List RKE2 etcd snapshots
+  ansible.builtin.command: rke2 etcd-snapshot ls
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+  register: etcd_snapshot_list
+  changed_when: false
+
+- name: Display etcd snapshots
+  ansible.builtin.debug:
+    var: etcd_snapshot_list.stdout_lines
+
+- name: Check RKE2 secrets encryption status
+  ansible.builtin.command: rke2 secrets-encrypt status
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+  register: secrets_status
+  changed_when: false
+
+- name: Display secrets encryption status
+  ansible.builtin.debug:
+    var: secrets_status.stdout_lines
+
+- name: Create backup directory
+  ansible.builtin.file:
+    path: "{{ rke2_backup_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Create RKE2 backup archive
+  ansible.builtin.shell: >
+    tar -C / -czf "{{ rke2_backup_dir }}/rke2-rancher-$(date +%F-%H%M).tar.gz"
+    etc/rancher/rke2
+    var/lib/rancher/rke2/server/token
+    var/lib/rancher/rke2/server/db/snapshots
+    root/rancher-values.yaml
+    root/rancher-tls
+  args:
+    creates: "{{ rke2_backup_dir }}/rke2-rancher-*.tar.gz"
+
+- name: List backup files
+  ansible.builtin.command: ls -lh {{ rke2_backup_dir }}
+  register: backup_list
+  changed_when: false
+
+- name: Display backup files
+  ansible.builtin.debug:
+    var: backup_list.stdout_lines
+
+- name: Final verification - get all nodes
+  ansible.builtin.command: kubectl get nodes -o wide
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: final_nodes
+  changed_when: false
+
+- name: Display final node status
+  ansible.builtin.debug:
+    var: final_nodes.stdout_lines
+
+- name: Final verification - get all pods
+  ansible.builtin.command: kubectl get pods -A
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: final_pods
+  changed_when: false
+
+- name: Display final pod status
+  ansible.builtin.debug:
+    var: final_pods.stdout_lines
+
+- name: Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "RKE2 {{ rke2_version }} installation complete"
+      - "Rancher {{ rancher_chart_version }} installed"
+      - "Access Rancher at: https://{{ rancher_hostname }}"
+      - "Bootstrap password: {{ bootstrap_password.stdout }}"
+      - "CA certificate for browser trust: /tmp/homelab-cacerts.pem on master node"
+      - "Backup location: {{ rke2_backup_dir }}"

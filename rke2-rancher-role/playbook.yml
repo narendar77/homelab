@@ -1,0 +1,14 @@
+---
+# Playbook to install RKE2 1.31.9 and Rancher on Rocky Linux 9
+# Usage: ansible-playbook -i inventory.ini playbook.yml
+
+- name: Install RKE2 and Rancher
+  hosts: rke2_cluster
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - role: rke2-rancher-role
+      tags:
+        - rke2
+        - rancher

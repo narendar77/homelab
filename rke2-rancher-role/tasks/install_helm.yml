@@ -1,0 +1,48 @@
+---
+# Helm installation tasks - run on master node only
+
+- name: Download Helm installation script
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: /root/get-helm-3.sh
+    mode: '0755'
+
+- name: Install Helm with pinned version
+  ansible.builtin.shell: bash /root/get-helm-3.sh --version {{ helm_version }}
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Verify Helm installation
+  ansible.builtin.command: helm version --short
+  register: helm_version_check
+  changed_when: false
+
+- name: Display Helm version
+  ansible.builtin.debug:
+    var: helm_version_check.stdout
+
+- name: Add Rancher stable Helm repository
+  ansible.builtin.command: helm repo add {{ helm_repo_name }} {{ helm_repo_url }}
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: helm_repo_add
+  changed_when: false
+  ignore_errors: yes
+
+- name: Update Helm repositories
+  ansible.builtin.command: helm repo update
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: helm_repo_update
+  changed_when: false
+
+- name: Show Rancher chart information
+  ansible.builtin.command: helm show chart {{ helm_repo_name }}/rancher --version {{ rancher_chart_version }}
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: helm_chart_info
+  changed_when: false
+  ignore_errors: yes

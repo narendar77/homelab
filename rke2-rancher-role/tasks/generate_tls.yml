@@ -1,0 +1,104 @@
+---
+# TLS certificate generation tasks - run on master node only
+
+- name: Create TLS directory
+  ansible.builtin.file:
+    path: "{{ rancher_tls_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Generate CA private key
+  ansible.builtin.command: openssl genrsa -out {{ rancher_tls_dir }}/homelab-ca.key 4096
+  args:
+    creates: "{{ rancher_tls_dir }}/homelab-ca.key"
+
+- name: Create CA extension file
+  ansible.builtin.copy:
+    dest: "{{ rancher_tls_dir }}/ca.ext"
+    content: |
+      basicConstraints=critical,CA:TRUE
+      keyUsage=critical,keyCertSign,cRLSign
+    mode: '0600'
+
+- name: Generate CA certificate
+  ansible.builtin.shell: >
+    openssl req -x509 -new -sha256 -days {{ rancher_ca_days }}
+    -key {{ rancher_tls_dir }}/homelab-ca.key -out {{ rancher_tls_dir }}/cacerts.pem
+    -subj "/CN=Narendar Homelab Root CA"
+    -extfile {{ rancher_tls_dir }}/ca.ext
+  args:
+    creates: "{{ rancher_tls_dir }}/cacerts.pem"
+
+- name: Generate server certificate signing request
+  ansible.builtin.command: >
+    openssl req -new -newkey rsa:2048 -nodes
+    -keyout {{ rancher_tls_dir }}/tls.key -out {{ rancher_tls_dir }}/rancher.csr
+    -subj '{{ rancher_cert_subject }}'
+  args:
+    creates: "{{ rancher_tls_dir }}/rancher.csr"
+
+- name: Create certificate extension file
+  ansible.builtin.copy:
+    dest: "{{ rancher_tls_dir }}/rancher.ext"
+    content: |
+      basicConstraints=critical,CA:FALSE
+      keyUsage=critical,digitalSignature,keyEncipherment
+      extendedKeyUsage=serverAuth
+      subjectAltName=DNS:{{ rancher_hostname }}
+    mode: '0600'
+
+- name: Sign server certificate with CA
+  ansible.builtin.shell: openssl x509 -req -in {{ rancher_tls_dir }}/rancher.csr -CA {{ rancher_tls_dir }}/cacerts.pem -CAkey {{ rancher_tls_dir }}/homelab-ca.key -CAcreateserial -out {{ rancher_tls_dir }}/tls.crt -days {{ rancher_cert_days }} -sha256 -extfile {{ rancher_tls_dir }}/rancher.ext
+  args:
+    creates: "{{ rancher_tls_dir }}/tls.crt"
+
+- name: Verify server certificate
+  ansible.builtin.command: >
+    openssl verify -CAfile {{ rancher_tls_dir }}/cacerts.pem -verify_hostname {{ rancher_hostname }} {{ rancher_tls_dir }}/tls.crt
+  register: cert_verify
+  changed_when: false
+
+- name: Display certificate verification result
+  ansible.builtin.debug:
+    var: cert_verify.stdout
+
+- name: Display certificate details
+  ansible.builtin.command: openssl x509 -in {{ rancher_tls_dir }}/tls.crt -noout -dates -ext subjectAltName
+  register: cert_details
+  changed_when: false
+
+- name: Display certificate details
+  ansible.builtin.debug:
+    var: cert_details.stdout
+
+- name: Create Rancher namespace
+  ansible.builtin.command: kubectl create namespace {{ rancher_namespace }}
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: namespace_create
+  changed_when: namespace_create.rc == 0
+  failed_when: false
+
+- name: Create TLS secret for Rancher ingress
+  ansible.builtin.command: >
+    kubectl -n {{ rancher_namespace }} create secret tls tls-rancher-ingress
+    --cert={{ rancher_tls_dir }}/tls.crt
+    --key={{ rancher_tls_dir }}/tls.key
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: tls_secret_create
+  changed_when: tls_secret_create.rc == 0
+  failed_when: false
+
+- name: Create CA secret for Rancher agents
+  ansible.builtin.command: >
+    kubectl -n {{ rancher_namespace }} create secret generic tls-ca
+    --from-file=cacerts.pem={{ rancher_tls_dir }}/cacerts.pem
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: ca_secret_create
+  changed_when: ca_secret_create.rc == 0
+  failed_when: false

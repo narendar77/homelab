@@ -1,0 +1,8 @@
+---
+# Custom variables - override values from vars/main.yml here
+# Copy this file to group_vars/all.yml or pass it with -e @custom_vars.yml
+
+# Override these values for your environment
+# rke2_master_node: "your-master-hostname"
+# rke2_master_ip: "192.168.x.x"
+# rancher_hostname: "rancher.yourdomain.com"

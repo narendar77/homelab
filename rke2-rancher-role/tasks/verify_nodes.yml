@@ -1,0 +1,80 @@
+---
+# Verify all nodes are ready - run on master node only
+
+- name: Source RKE2 environment
+  ansible.builtin.set_fact:
+    kubectl_command: "export PATH=\"$PATH:/var/lib/rancher/rke2/bin\" && export KUBECONFIG=/etc/rancher/rke2/rke2.yaml"
+
+- name: Wait for master node to be ready
+  ansible.builtin.command: kubectl wait --for=condition=Ready node/{{ rke2_master_node }} --timeout={{ rke2_node_ready_timeout }}s
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: master_ready
+  changed_when: false
+
+- name: Wait for worker nodes to be ready
+  ansible.builtin.command: kubectl wait --for=condition=Ready node/{{ item.name }} --timeout={{ rke2_node_ready_timeout }}s
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: worker_ready
+  changed_when: false
+  loop: "{{ rke2_worker_nodes }}"
+
+- name: Get all nodes
+  ansible.builtin.command: kubectl get nodes -o wide
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: nodes_output
+  changed_when: false
+
+- name: Display nodes
+  ansible.builtin.debug:
+    var: nodes_output.stdout_lines
+
+- name: Get all pods
+  ansible.builtin.command: kubectl get pods -A -o wide
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: pods_output
+  changed_when: false
+
+- name: Display pods
+  ansible.builtin.debug:
+    var: pods_output.stdout_lines
+
+- name: Get ingress class
+  ansible.builtin.command: kubectl get ingressclass
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: ingressclass_output
+  changed_when: false
+
+- name: Display ingress class
+  ansible.builtin.debug:
+    var: ingressclass_output.stdout_lines
+
+- name: Wait for ingress controller to be ready
+  ansible.builtin.command: kubectl -n kube-system rollout status daemonset/rke2-ingress-nginx-controller --timeout=600s
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: ingress_ready
+  changed_when: false
+
+- name: Test DNS from a pod
+  ansible.builtin.command: kubectl run rancher-dns-check --image=busybox:1.37.0 --restart=Never --rm -i -- nslookup {{ rancher_hostname }}
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: dns_test
+  changed_when: false
+  ignore_errors: yes
+
+- name: Display DNS test result
+  ansible.builtin.debug:
+    var: dns_test.stdout_lines

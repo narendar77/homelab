@@ -1,0 +1,117 @@
+---
+# Common VM preparation tasks - run on all nodes
+
+- name: Upgrade all packages
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+    update_cache: yes
+
+- name: Install required system packages
+  ansible.builtin.dnf:
+    name: "{{ system_packages }}"
+    state: present
+
+- name: Enable and start chronyd
+  ansible.builtin.systemd:
+    name: chronyd
+    state: started
+    enabled: yes
+
+- name: Disable swap
+  ansible.builtin.command: swapoff -a
+  changed_when: false
+  ignore_errors: yes
+
+- name: Remove swap entries from fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^[^#].*[[:space:]]swap[[:space:]]'
+    backup: yes
+    state: absent
+
+- name: Backup original fstab
+  ansible.builtin.copy:
+    src: /etc/fstab
+    dest: /etc/fstab.before-rke2
+    remote_src: yes
+    mode: '0644'
+
+- name: Create NetworkManager conf directory
+  ansible.builtin.file:
+    path: /etc/NetworkManager/conf.d
+    state: directory
+    mode: '0755'
+
+- name: Configure NetworkManager to ignore Canal interfaces
+  ansible.builtin.copy:
+    dest: /etc/NetworkManager/conf.d/rke2-canal.conf
+    content: |
+      [keyfile]
+      unmanaged-devices={{ networkmanager_unmanaged_devices }}
+    mode: '0644'
+  notify: reload NetworkManager
+
+- name: Disable nm-cloud-setup services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+  loop:
+    - nm-cloud-setup.service
+    - nm-cloud-setup.timer
+
+- name: Disable firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+
+- name: Load kernel modules at boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/rke2.conf
+    content: |
+      {% for module in kernel_modules %}
+      {{ module }}
+      {% endfor %}
+    mode: '0644'
+
+- name: Load kernel modules immediately
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ kernel_modules }}"
+
+- name: Configure sysctl parameters
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/90-rke2.conf
+    content: |
+      {% for key, value in sysctl_params.items() %}
+      {{ key }} = {{ value }}
+      {% endfor %}
+    mode: '0644'
+  notify: apply sysctl
+
+- name: Set hostname on master node
+  ansible.builtin.hostname:
+    name: "{{ rke2_master_node }}"
+  when: inventory_hostname == rke2_master_node
+
+- name: Set hostname on worker nodes
+  ansible.builtin.hostname:
+    name: "{{ item.name }}"
+  when: inventory_hostname == item.name
+  loop: "{{ rke2_worker_nodes }}"
+
+- name: Verify DNS resolution for Rancher hostname
+  ansible.builtin.command: getent ahostsv4 {{ dns_test_host }}
+  register: dns_check
+  changed_when: false
+  failed_when: dns_expected_ip not in dns_check.stdout
+
+- name: Reboot nodes to apply all changes
+  ansible.builtin.reboot:
+    reboot_timeout: 600
+  when: kernel_modules | length > 0 or sysctl_params | length > 0

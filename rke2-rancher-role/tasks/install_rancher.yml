@@ -1,0 +1,114 @@
+---
+# Rancher installation tasks - run on master node only
+
+- name: Create Rancher values file
+  ansible.builtin.copy:
+    dest: /root/rancher-values.yaml
+    content: |
+      hostname: {{ rancher_hostname }}
+      replicas: {{ rancher_replicas }}
+      antiAffinity: preferred
+      agentTLSMode: {{ rancher_agent_tls_mode }}
+      privateCA: {{ rancher_private_ca | lower }}
+      ingress:
+        ingressClassName: {{ rancher_ingress_class }}
+        tls:
+          source: secret
+    mode: '0600'
+
+- name: Install Rancher via Helm
+  ansible.builtin.command: >
+    helm install rancher {{ helm_repo_name }}/rancher
+    --namespace {{ rancher_namespace }}
+    --version {{ rancher_chart_version }}
+    --values /root/rancher-values.yaml
+    --wait --timeout {{ rancher_deployment_timeout }}s
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: rancher_install
+  changed_when: rancher_install.rc == 0
+  failed_when: rancher_install.rc != 0
+
+- name: Wait for Rancher deployment to be ready
+  ansible.builtin.command: >
+    kubectl -n {{ rancher_namespace }} rollout status deployment/rancher --timeout={{ rancher_deployment_timeout }}s
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: rancher_rollout
+  changed_when: false
+
+- name: Get Rancher pods
+  ansible.builtin.command: kubectl -n {{ rancher_namespace }} get pods -o wide
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: rancher_pods
+  changed_when: false
+
+- name: Display Rancher pods
+  ansible.builtin.debug:
+    var: rancher_pods.stdout_lines
+
+- name: Get Rancher ingress
+  ansible.builtin.command: kubectl -n {{ rancher_namespace }} get ingress rancher
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: rancher_ingress
+  changed_when: false
+
+- name: Display Rancher ingress
+  ansible.builtin.debug:
+    var: rancher_ingress.stdout_lines
+
+- name: Test Rancher ping with certificate validation (resolve)
+  ansible.builtin.command: >
+    curl --fail --show-error
+    --cacert {{ rancher_tls_dir }}/cacerts.pem
+    --resolve {{ rancher_hostname }}:443:{{ rke2_master_ip }}
+    https://{{ rancher_hostname }}/ping
+  register: rancher_ping_resolve
+  changed_when: false
+  ignore_errors: yes
+
+- name: Display Rancher ping result (resolve)
+  ansible.builtin.debug:
+    var: rancher_ping_resolve.stdout
+  when: rancher_ping_resolve.rc == 0
+
+- name: Test Rancher ping with certificate validation (DNS)
+  ansible.builtin.command: >
+    curl --fail --show-error
+    --cacert {{ rancher_tls_dir }}/cacerts.pem
+    https://{{ rancher_hostname }}/ping
+  register: rancher_ping_dns
+  changed_when: false
+  ignore_errors: yes
+
+- name: Display Rancher ping result (DNS)
+  ansible.builtin.debug:
+    var: rancher_ping_dns.stdout
+  when: rancher_ping_dns.rc == 0
+
+- name: Retrieve Rancher bootstrap password
+  ansible.builtin.command: >
+    kubectl -n {{ rancher_namespace }} get secret bootstrap-secret
+    -o jsonpath='{.data.bootstrapPassword}' | base64 -d
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/var/lib/rancher/rke2/bin"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: bootstrap_password
+  changed_when: false
+
+- name: Display bootstrap password
+  ansible.builtin.debug:
+    msg: "Rancher bootstrap password: {{ bootstrap_password.stdout }}"
+
+- name: Copy CA certificate for client download
+  ansible.builtin.copy:
+    src: "{{ rancher_tls_dir }}/cacerts.pem"
+    dest: /tmp/homelab-cacerts.pem
+    mode: '0644'
+    remote_src: yes

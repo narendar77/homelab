@@ -1,0 +1,50 @@
+---
+# Main task file for RKE2 Rancher installation
+
+- name: Include common VM preparation tasks
+  ansible.builtin.include_tasks: common_prep.yml
+  tags:
+    - common_prep
+
+- name: Include RKE2 server installation tasks
+  ansible.builtin.include_tasks: install_server.yml
+  when: inventory_hostname == rke2_master_node
+  tags:
+    - rke2_server
+
+- name: Include RKE2 agent installation tasks
+  ansible.builtin.include_tasks: install_agent.yml
+  when: inventory_hostname in rke2_worker_nodes | map(attribute='name') | list
+  tags:
+    - rke2_agent
+
+- name: Wait for all nodes to be ready
+  ansible.builtin.include_tasks: verify_nodes.yml
+  when: inventory_hostname == rke2_master_node
+  tags:
+    - verify
+
+- name: Include Helm installation tasks
+  ansible.builtin.include_tasks: install_helm.yml
+  when: inventory_hostname == rke2_master_node
+  tags:
+    - helm
+
+- name: Include TLS certificate generation tasks
+  ansible.builtin.include_tasks: generate_tls.yml
+  when: inventory_hostname == rke2_master_node
+  tags:
+    - tls
+
+- name: Include Rancher installation tasks
+  ansible.builtin.include_tasks: install_rancher.yml
+  when: inventory_hostname == rke2_master_node
+  tags:
+    - rancher
+
+- name: Include verification and backup tasks
+  ansible.builtin.include_tasks: verify_backup.yml
+  when: inventory_hostname == rke2_master_node
+  tags:
+    - verify
+    - backup

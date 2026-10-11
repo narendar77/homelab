@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  author: Narendar
+  description: Install RKE2 1.31.9 and Rancher on Rocky Linux 9
+  company: Homelab
+  license: MIT
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+
+  galaxy_tags:
+    - kubernetes
+    - rke2
+    - rancher
+    - container
+    - cloud
+
+dependencies: []

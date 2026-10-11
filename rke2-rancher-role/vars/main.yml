@@ -1,0 +1,51 @@
+---
+# RKE2 Version Configuration
+rke2_version: "v1.31.9+rke2r1"
+rke2_channel: "v1.31"
+rke2_install_method: "rpm"
+
+# Node Configuration
+rke2_master_node: "rke2localmaster01"
+rke2_master_ip: "192.168.10.199"
+rke2_worker_nodes:
+  - name: "rke2localworker01"
+    ip: "192.168.10.156"
+  - name: "rke2localworker02"
+    ip: "192.168.10.81"
+
+# RKE2 Configuration
+rke2_config_dir: "/etc/rancher/rke2"
+rke2_selinux: true
+rke2_write_kubeconfig_mode: "0600"
+
+# Rancher Configuration
+rancher_hostname: "rancher.narendar.com"
+rancher_namespace: "cattle-system"
+rancher_chart_version: "2.12.3"
+rancher_replicas: 3
+rancher_ingress_class: "nginx"
+rancher_agent_tls_mode: "strict"
+rancher_private_ca: true
+
+# Helm Configuration
+helm_version: "v3.19.5"
+helm_repo_url: "https://releases.rancher.com/server-charts/stable"
+helm_repo_name: "rancher-stable"
+
+# TLS Certificate Configuration
+rancher_tls_dir: "/root/rancher-tls"
+rancher_ca_subject: "/CN=Narendar Homelab Root CA"
+rancher_cert_subject: "/CN=rancher.narendar.com"
+rancher_cert_days: 365
+rancher_ca_days: 3650
+
+# Backup Configuration
+rke2_backup_dir: "/root/rke2-backups"
+
+# Network Configuration
+pod_cidr: "10.42.0.0/16"
+service_cidr: "10.43.0.0/16"
+
+# Timeout configurations
+rke2_node_ready_timeout: 600
+rancher_deployment_timeout: 900
